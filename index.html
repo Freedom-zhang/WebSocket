@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <script type="text/javascript" src="./qwebchannel.js"></script>
+        <script type="text/javascript">
+            //BEGIN SETUP
+            function output(message)
+            {
+                var output = document.getElementById("output");
+                output.innerHTML = output.innerHTML + message + "\n";
+            }
+            //为了在打印信息而准备的方法
+            window.onload = function() {
+                if (location.search != "")
+                    var baseUrl = (/[?&]webChannelBaseUrl=([A-Za-z0-9\-:/\.]+)/.exec(location.search)[1]);
+                else
+                    var baseUrl = "ws://localhost:12345";
+
+                output("Connecting to WebSocket server at " + baseUrl + ".");
+                var socket = new WebSocket(baseUrl);//创建一个Socket实例,连接到服务器
+
+                //几个事件的绑定
+                socket.onclose = function()
+                {
+                    console.error("web channel closed");
+                };
+                socket.onerror = function(error)
+                {
+                    console.error("web channel error: " + error);
+                };
+                socket.onopen = function()// 连接成功后触发
+                {
+                    output("WebSocket connected, setting up QWebChannel.");
+                    //将socket交给qwebchannel.js,处理完后回调
+                    new QWebChannel(socket, function(channel) {
+                        // make dialog object accessible globally
+                        window.dialog = channel.objects.dialog;
+                        //应该是设置全局对象吧,objects里应该就存放着注册的对象
+                        document.getElementById("send").onclick = function() {
+                            var input = document.getElementById("input");
+                            var text = input.value;
+                            if (!text) {
+                                return;
+                            }
+
+                            output("Sent message: " + text);
+                            input.value = "";
+                            dialog.receiveText(text);
+                        }
+                        //HTML的send按钮的点击事件处理
+                        dialog.sendText.connect(function(message) {
+                            output("Received message: " + message);
+                        });
+                        //C++调用sendText时会使用到这里的匿名函数
+                        dialog.receiveText("Client connected, ready to send/receive messages!");
+                        //HTML直接调用函数
+                        output("Connected to WebChannel, ready to send/receive messages!");
+                    });
+                }
+            }
+            //END SETUP
+        </script>
+        <style type="text/css">
+            html {
+                height: 100%;
+                width: 100%;
+            }
+            #input {
+                width: 400px;
+                margin: 0 10px 0 0;
+            }
+            #send {
+                width: 90px;
+                margin: 0;
+            }
+            #output {
+                width: 500px;
+                height: 300px;
+            }
+        </style>
+    </head>
+    <body>
+        <textarea id="output"></textarea><br />
+        <input id="input" /><input type="submit" id="send" value="Send" onclick="javascript:click();" />
+    </body>
+</html>
